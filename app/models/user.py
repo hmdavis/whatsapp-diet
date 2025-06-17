@@ -24,4 +24,4 @@ class User(Base):
     activity_level = Column(String)  # e.g., "sedentary", "moderate", "active"
     dietary_restrictions = Column(String)  # comma-separated list of restrictions
 
-    food_logs = relationship("FoodLog", back_populates="user") 
+    food_logs = relationship("FoodLog", back_populates="user")

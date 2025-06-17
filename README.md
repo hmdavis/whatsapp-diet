@@ -59,6 +59,23 @@ uvicorn app.main:app --reload
 
 The API will be available at `http://localhost:8000`
 
+### Development Workflow
+
+For development, you can:
+
+1. **View API Documentation**: Visit `http://localhost:8000/docs` for interactive Swagger UI
+2. **Test Database**: Use `GET /db-test` endpoint to verify database connectivity
+3. **Test Webhook**: Use tools like ngrok to expose localhost for Twilio webhook testing
+4. **Monitor Logs**: The application uses structured logging for debugging
+
+```bash
+# Test the webhook locally with ngrok
+ngrok http 8000
+
+# Update your Twilio webhook URL to:
+# https://your-ngrok-url.ngrok.io/api/v1/webhook/message
+```
+
 ## Railway Deployment
 
 ### Prerequisites
@@ -113,9 +130,48 @@ alembic upgrade head
 
 - `GET /` - Welcome message
 - `GET /health` - Health check
-- `POST /api/v1/webhook` - Twilio webhook endpoint
-- `GET /api/v1/food-logs` - Get food logs
-- `POST /api/v1/food-logs` - Create food log
+- `GET /db-test` - Database connection test
+- `POST /api/v1/webhook/message` - Twilio webhook endpoint for WhatsApp/SMS
+- `GET /api/v1/food-logs/{user_id}` - Get user's food logs
+- `POST /api/v1/food-logs/{user_id}` - Create food log entries
+
+## Architecture
+
+### Design Principles
+
+The codebase follows these key principles for maintainability:
+
+1. **Separation of Concerns**: Each layer has a single responsibility
+   - API layer handles HTTP requests/responses
+   - Service layer contains business logic
+   - Repository layer manages data access
+   - Models define data structure
+
+2. **Dependency Injection**: Services are injected rather than created directly
+   - Improves testability and flexibility
+   - Managed through `app/core/dependencies.py`
+
+3. **Repository Pattern**: Centralized data access logic
+   - Abstracts database operations
+   - Makes testing easier with mockable interfaces
+
+4. **Service-Oriented Architecture**: Business logic separated into focused services
+   - `MessageClassificationService`: Determines if message is question vs food entry
+   - `NutritionCalculationService`: Handles all nutrition math and progress tracking
+   - `ResponseFormattingService`: Formats user-facing messages
+   - `OpenAIService`: Manages AI interactions
+   - `FoodLogService`: Coordinates food logging workflow
+
+5. **Error Handling**: Custom exceptions for different error types
+   - Domain-specific exceptions in `app/exceptions/`
+   - Consistent error responses across the API
+
+### Key Components
+
+- **Schemas**: Pydantic models for request/response validation and serialization
+- **Repositories**: Data access abstraction with common CRUD operations
+- **Services**: Business logic encapsulation with clear interfaces
+- **Dependencies**: FastAPI dependency injection for clean service instantiation
 
 ## Environment Variables
 
@@ -131,23 +187,42 @@ alembic upgrade head
 
 ```
 app/
-├── api/
-│   ├── endpoints/
-│   │   └── food_logs.py
-│   └── webhook.py
-├── core/
-│   └── config.py
-├── db/
-│   ├── base.py
-│   ├── init_db.py
-│   └── session.py
-├── models/
-│   ├── food_log.py
-│   └── user.py
-├── services/
-│   ├── food_log_service.py
-│   └── openai_service.py
-└── main.py
+├── api/                          # API layer
+│   ├── v1/                       # API version 1
+│   │   ├── webhook.py           # WhatsApp/SMS webhook handler
+│   │   └── food_logs.py         # Food log REST endpoints
+│   └── __init__.py              # API router setup
+├── core/                        # Core configuration
+│   ├── config.py                # Application settings
+│   └── dependencies.py          # Dependency injection setup
+├── db/                          # Database layer
+│   ├── base.py                  # SQLAlchemy base
+│   ├── init_db.py               # Database initialization
+│   └── session.py               # Database session management
+├── exceptions/                  # Custom exceptions
+│   ├── base.py                  # Base exception classes
+│   ├── food.py                  # Food-related exceptions
+│   ├── user.py                  # User-related exceptions
+│   └── external.py              # External service exceptions
+├── models/                      # SQLAlchemy models
+│   ├── food_log.py              # Food log database model
+│   └── user.py                  # User database model
+├── repositories/                # Data access layer
+│   ├── base.py                  # Base repository pattern
+│   ├── user_repository.py       # User data operations
+│   └── food_log_repository.py   # Food log data operations
+├── schemas/                     # Pydantic schemas
+│   ├── webhook.py               # Webhook request/response schemas
+│   ├── food_log.py              # Food log schemas
+│   ├── user.py                  # User schemas
+│   └── nutrition.py             # Nutrition data schemas
+├── services/                    # Business logic layer
+│   ├── food_log_service.py      # Food logging business logic
+│   ├── openai_service.py        # OpenAI integration
+│   ├── message_classification_service.py  # Message type classification
+│   ├── nutrition_calculation_service.py   # Nutrition calculations
+│   └── response_formatting_service.py     # Response formatting
+└── main.py                      # FastAPI application entry point
 ```
 
 ## Troubleshooting
